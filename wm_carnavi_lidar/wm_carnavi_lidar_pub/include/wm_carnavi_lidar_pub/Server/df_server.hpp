@@ -1,3 +1,0 @@
-#define SERVER_PORT 5000
-#define MULTICAST_GROUP_IP "224.0.0.5"
-#define LIDAR_IP "192.168.123.3"
