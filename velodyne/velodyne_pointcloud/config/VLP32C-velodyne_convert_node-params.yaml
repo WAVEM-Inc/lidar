@@ -1,6 +1,6 @@
-velodyne_transform_node:
+velodyne_convert_node:
     ros__parameters:
-        calibration: VLP16db.yaml
+        calibration: VeloView-VLP-32C.yaml
         min_range: 0.9
         max_range: 130.0
         view_direction: 0.0

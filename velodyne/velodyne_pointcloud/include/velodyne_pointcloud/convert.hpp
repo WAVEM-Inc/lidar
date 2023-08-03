@@ -1,4 +1,4 @@
-// Copyright 2012, 2019 Austin Robot Technology, Jack O'Quin, Joshua Whitley, Sebastian Pütz  // NOLINT
+// Copyright 2009, 2010, 2011, 2012, 2019 Austin Robot Technology, Jack O'Quin, Jesse Vera, Joshua Whitley  // NOLINT
 // All rights reserved.
 //
 // Software License Agreement (BSD License 2.0)
@@ -30,42 +30,57 @@
 // ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
 
-#ifndef VELODYNE_POINTCLOUD__POINTCLOUDXYZIRT_HPP_
-#define VELODYNE_POINTCLOUD__POINTCLOUDXYZIRT_HPP_
+#ifndef VELODYNE_POINTCLOUD__CONVERT_HPP_
+#define VELODYNE_POINTCLOUD__CONVERT_HPP_
 
-#include <sensor_msgs/point_cloud2_iterator.hpp>
-#include <tf2/buffer_core.h>
+#include <diagnostic_updater/diagnostic_updater.hpp>
+#include <diagnostic_updater/publisher.hpp>
+#include <rclcpp/rclcpp.hpp>
+#include <sensor_msgs/msg/point_cloud2.hpp>
+#include <tf2_ros/buffer.h>
 #include <velodyne_msgs/msg/velodyne_scan.hpp>
 
 #include <memory>
 #include <string>
 
-#include "velodyne_pointcloud/datacontainerbase.hpp"
+#include "velodyne_pointcloud/pointcloudXYZIR.hpp"
+#include "velodyne_pointcloud/rawdata.hpp"
 
 namespace velodyne_pointcloud
 {
-class PointcloudXYZIRT final
-  : public velodyne_rawdata::DataContainerBase
+class Convert final
+  : public rclcpp::Node
 {
 public:
-  PointcloudXYZIRT(
-    const double min_range, const double max_range, const std::string & target_frame,
-    const std::string & fixed_frame, const unsigned int scans_per_block,
-    rclcpp::Clock::SharedPtr clock);
-
-  void newLine() override;
-
-  void setup(const velodyne_msgs::msg::VelodyneScan::ConstSharedPtr scan_msg) override;
-
-  void addPoint(
-    float x, float y, float z, uint16_t ring,
-    float distance, float intensity, float time) override;
+  explicit Convert(const rclcpp::NodeOptions & options);
+  ~Convert() override {}
+  Convert(Convert && c) = delete;
+  Convert & operator=(Convert && c) = delete;
+  Convert(const Convert & c) = delete;
+  Convert & operator=(const Convert & c) = delete;
 
 private:
-  sensor_msgs::PointCloud2Iterator<float> iter_x_, iter_y_, iter_z_, iter_intensity_;
-  sensor_msgs::PointCloud2Iterator<uint16_t> iter_ring_;
-  sensor_msgs::PointCloud2Iterator<float> iter_time_;
+  void processScan(const velodyne_msgs::msg::VelodyneScan::SharedPtr scanMsg);
+
+  std::unique_ptr<velodyne_rawdata::RawData> data_;
+  rclcpp::Subscription<velodyne_msgs::msg::VelodyneScan>::SharedPtr velodyne_scan_;
+  rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr output_;
+  tf2_ros::Buffer tf_buffer_;
+  std::unique_ptr<velodyne_rawdata::DataContainerBase> container_ptr_;
+
+  /// configuration parameters
+  struct Config
+  {
+    int npackets;  // number of packets to combine
+  };
+  Config config_{};
+
+  // diagnostics updater
+  diagnostic_updater::Updater diagnostics_;
+  double diag_min_freq_;
+  double diag_max_freq_;
+  std::unique_ptr<diagnostic_updater::TopicDiagnostic> diag_topic_;
 };
 }  // namespace velodyne_pointcloud
 
-#endif  // VELODYNE_POINTCLOUD__POINTCLOUDXYZIRT_HPP_
+#endif  // VELODYNE_POINTCLOUD__CONVERT_HPP_

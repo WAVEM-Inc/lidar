@@ -1,19 +1,11 @@
 Change history
 ==============
 
-2.3.0 (2022-07-08)
+2.1.1 (2022-02-07)
 ------------------
-* Updating maintainer email address. (`#450 <https://github.com/ros-drivers/velodyne/issues/450>`_)
-  * Updating maintainer email address.
-  * chore: update maintainer email address
-  Co-authored-by: Joshua Whitley <jwhitley@autonomoustuff.com>
-* Replace deprecated argument names in launch (`#430 <https://github.com/ros-drivers/velodyne/issues/430>`_)
-* 2.1.1
-* Updating for first Galactic release
-* Contributors: Daisuke Nishimatsu, Joshua Whitley, Keane Quigley
-
-2.1.1 (2021-08-23)
-------------------
+* Replace deprecated argument names in launch (`#435 <https://github.com/ros-drivers/velodyne/issues/435>`_)
+  Co-authored-by: Keane Quigley <keaneq@protonmail.com>
+* Contributors: Chris Lalancette
 
 2.1.0 (2020-07-10)
 ------------------

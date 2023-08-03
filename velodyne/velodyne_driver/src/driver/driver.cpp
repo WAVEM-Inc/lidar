@@ -80,7 +80,6 @@ VelodyneDriver::VelodyneDriver(const rclcpp::NodeOptions & options)
   std::string dump_file = this->declare_parameter("pcap", std::string(""));
   double cut_angle = this->declare_parameter("cut_angle", 2.0 * M_PI);
   int udp_port = this->declare_parameter("port", static_cast<int>(DATA_PORT_NUMBER));
-  config_.timestamp_first_packet = this->declare_parameter("timestamp_first_packet", false);
 
   future_ = exit_signal_.get_future();
 
@@ -126,19 +125,12 @@ VelodyneDriver::VelodyneDriver(const rclcpp::NodeOptions & options)
   } else if (cut_angle <= (2.0 * M_PI)) {
     RCLCPP_INFO(
       this->get_logger(), "Cut at specific angle feature activated. "
-      "Cutting velodyne points always at %f rad.", cut_angle);
+      "Cutting velodyne points always at " + std::to_string(cut_angle) + " rad.");
   } else {
     RCLCPP_ERROR(
       this->get_logger(), "cut_angle parameter is out of range."
       "Allowed range is between 0.0 and 2*PI or negative values to deactivate this feature.");
     cut_angle = -0.01;
-  }
-
-  // if we are timestamping based on the first or last packet in the scan
-  if (config_.timestamp_first_packet) {
-    RCLCPP_INFO(
-      this->get_logger(),
-      "Setting velodyne scan start time to timestamp of first packet");
   }
 
   // Convert cut_angle from radian to one-hundredth degree,
@@ -261,8 +253,7 @@ bool VelodyneDriver::poll()
 
   // publish message using time of last packet read
   RCLCPP_DEBUG(this->get_logger(), "Publishing a full Velodyne scan.");
-  builtin_interfaces::msg::Time stamp =
-    config_.timestamp_first_packet ? scan->packets.front().stamp : scan->packets.back().stamp;
+  builtin_interfaces::msg::Time stamp = scan->packets.back().stamp;
   scan->header.stamp = stamp;
   scan->header.frame_id = config_.frame_id;
   output_->publish(std::move(scan));

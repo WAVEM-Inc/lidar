@@ -46,7 +46,7 @@
 #include <memory>
 #include <string>
 
-#include "velodyne_pointcloud/pointcloudXYZIRT.hpp"
+#include "velodyne_pointcloud/pointcloudXYZIR.hpp"
 #include "velodyne_pointcloud/rawdata.hpp"
 
 namespace velodyne_pointcloud
@@ -63,11 +63,13 @@ public:
   Transform & operator=(const Transform & c) = delete;
 
 private:
-  void processScan(const velodyne_msgs::msg::VelodyneScan::ConstSharedPtr scanMsg);
+  void processScan(const std::shared_ptr<const velodyne_msgs::msg::VelodyneScan> & scanMsg);
 
   std::unique_ptr<velodyne_rawdata::RawData> data_;
   rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr output_;
-  rclcpp::Subscription<velodyne_msgs::msg::VelodyneScan>::SharedPtr velodyne_scan_;
+  message_filters::Subscriber<velodyne_msgs::msg::VelodyneScan> velodyne_scan_;
+  tf2_ros::Buffer tf_buffer_;
+  std::unique_ptr<tf2_ros::MessageFilter<velodyne_msgs::msg::VelodyneScan>> tf_filter_;
 
   std::unique_ptr<velodyne_rawdata::DataContainerBase> container_ptr_;
 

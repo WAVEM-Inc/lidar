@@ -1,4 +1,4 @@
-// Copyright 2007, 2009, 2010, 2012, 2019 Austin Robot Technology, Patrick Beeson, Jack O'Quin, Kaarta Inc, Shawn Hanna, Joshua Whitley  // NOLINT
+// Copyright 2007, 2009, 2010, 2012, 2019 Austin Robot Technology, Patrick Beeson, Jack O'Quin, Joshua Whitley  // NOLINT
 // All rights reserved.
 //
 // Software License Agreement (BSD License 2.0)
@@ -55,11 +55,9 @@ inline float square(float val)
 //
 ////////////////////////////////////////////////////////////////////////
 
-RawData::RawData(const std::string & calibration_file, const std::string & model)
+RawData::RawData(const std::string & calibration_file)
 {
   calibration_ = std::make_unique<velodyne_pointcloud::Calibration>(calibration_file);
-  config_.model = model;
-  buildTimings();
 
   // RCLCPP_INFO(this->get_logger(), "Number of lasers: %d.",  calibration_->num_lasers);
 
@@ -107,113 +105,6 @@ int RawData::scansPerPacket() const
   return BLOCKS_PER_PACKET * SCANS_PER_BLOCK;
 }
 
-/**
- * Build a timing table for each block/firing. Stores in timing_offsets vector
- */
-bool RawData::buildTimings()
-{
-  // vlp16
-  if (config_.model == "VLP16") {
-    // timing table calculation, from velodyne user manual
-    timing_offsets_.resize(12);
-    for (size_t i = 0; i < timing_offsets_.size(); ++i) {
-      timing_offsets_[i].resize(32);
-    }
-    // constants
-    double full_firing_cycle = 55.296 * 1e-6;   // seconds
-    double single_firing = 2.304 * 1e-6;   // seconds
-    double dataBlockIndex, dataPointIndex;
-    bool dual_mode = false;
-    // compute timing offsets
-    for (size_t x = 0; x < timing_offsets_.size(); ++x) {
-      for (size_t y = 0; y < timing_offsets_[x].size(); ++y) {
-        if (dual_mode) {
-          dataBlockIndex = (x - (x % 2)) + (y / 16);
-        } else {
-          dataBlockIndex = (x * 2) + (y / 16);
-        }
-        dataPointIndex = y % 16;
-        // timing_offsets[block][firing]
-        timing_offsets_[x][y] = (full_firing_cycle * dataBlockIndex) +
-          (single_firing * dataPointIndex);
-      }
-    }
-    // vlp32
-  } else if (config_.model == "32C") {
-    // timing table calculation, from velodyne user manual
-    timing_offsets_.resize(12);
-    for (size_t i = 0; i < timing_offsets_.size(); ++i) {
-      timing_offsets_[i].resize(32);
-    }
-    // constants
-    double full_firing_cycle = 55.296 * 1e-6;   // seconds
-    double single_firing = 2.304 * 1e-6;   // seconds
-    double dataBlockIndex, dataPointIndex;
-    bool dual_mode = false;
-    // compute timing offsets
-    for (size_t x = 0; x < timing_offsets_.size(); ++x) {
-      for (size_t y = 0; y < timing_offsets_[x].size(); ++y) {
-        if (dual_mode) {
-          dataBlockIndex = x / 2;
-        } else {
-          dataBlockIndex = x;
-        }
-        dataPointIndex = y / 2;
-        timing_offsets_[x][y] = (full_firing_cycle * dataBlockIndex) +
-          (single_firing * dataPointIndex);
-      }
-    }
-    // hdl32
-  } else if (config_.model == "32E") {
-    // timing table calculation, from velodyne user manual
-    timing_offsets_.resize(12);
-    for (size_t i = 0; i < timing_offsets_.size(); ++i) {
-      timing_offsets_[i].resize(32);
-    }
-    // constants
-    double full_firing_cycle = 46.080 * 1e-6;   // seconds
-    double single_firing = 1.152 * 1e-6;   // seconds
-    double dataBlockIndex, dataPointIndex;
-    bool dual_mode = false;
-    // compute timing offsets
-    for (size_t x = 0; x < timing_offsets_.size(); ++x) {
-      for (size_t y = 0; y < timing_offsets_[x].size(); ++y) {
-        if (dual_mode) {
-          dataBlockIndex = x / 2;
-        } else {
-          dataBlockIndex = x;
-        }
-        dataPointIndex = y / 2;
-        timing_offsets_[x][y] = (full_firing_cycle * dataBlockIndex) +
-          (single_firing * dataPointIndex);
-      }
-    }
-  } else {
-    timing_offsets_.clear();
-    RCLCPP_WARN(
-      rclcpp::get_logger("velodyne_pointcloud"),
-      "Timings not supported for model %s", config_.model.c_str());
-  }
-
-  if (timing_offsets_.size()) {
-    // RCLCPP_INFO(
-    //   rclcpp::get_logger("velodyne_pointcloud"),
-    //   "VELODYNE TIMING TABLE:");
-    for (size_t x = 0; x < timing_offsets_.size(); ++x) {
-      for (size_t y = 0; y < timing_offsets_[x].size(); ++y) {
-        printf("%04.3f ", timing_offsets_[x][y] * 1e6);
-      }
-      printf("\n");
-    }
-    return true;
-  } else {
-    RCLCPP_WARN(
-      rclcpp::get_logger("velodyne_pointcloud"),
-      "NO TIMING OFFSETS CALCULATED. ARE YOU USING A SUPPORTED VELODYNE SENSOR?");
-  }
-  return false;
-}
-
 int RawData::numLasers() const
 {
   return calibration_->num_lasers;
@@ -224,20 +115,15 @@ int RawData::numLasers() const
  *  @param pkt raw packet to unpack
  *  @param pc shared pointer to point cloud (points are appended)
  */
-void RawData::unpack(
-  const velodyne_msgs::msg::VelodynePacket & pkt, DataContainerBase & data,
-  const rclcpp::Time & scan_start_time)
+void RawData::unpack(const velodyne_msgs::msg::VelodynePacket & pkt, DataContainerBase & data)
 {
   // RCLCPP_DEBUG(this->get_logger(), "Received packet, time: %s", pkt.stamp);
 
   /** special parsing for the VLP16 **/
   if (calibration_->num_lasers == 16) {
-    unpack_vlp16(pkt, data, scan_start_time);
+    unpack_vlp16(pkt, data);
     return;
   }
-
-  float time_diff_start_to_this_packet =
-    (rclcpp::Time(pkt.stamp) - scan_start_time).seconds();
 
   const raw_packet * raw = reinterpret_cast<const raw_packet *>(&pkt.data[0]);
 
@@ -256,7 +142,6 @@ void RawData::unpack(
       float x, y, z;
       float intensity;
       const uint8_t laser_number = j + bank_origin;
-      float time = 0;
 
       const velodyne_pointcloud::LaserCorrection & corrections =
         calibration_->laser_corrections[laser_number];
@@ -267,6 +152,10 @@ void RawData::unpack(
       tmp.bytes[0] = block.data[k];
       tmp.bytes[1] = block.data[k + 1];
 
+      if (tmp.bytes[0] == 0 && tmp.bytes[1] == 0) {  // no laser beam return
+        continue;
+      }
+
       /*condition added to avoid calculating points which are not
         in the interesting defined area (min_angle < area < max_angle)*/
       if ((config_.min_angle < config_.max_angle &&
@@ -276,18 +165,6 @@ void RawData::unpack(
         (block.rotation <= config_.max_angle ||
         block.rotation >= config_.min_angle)))
       {
-        if (timing_offsets_.size()) {
-          time = timing_offsets_[i][j] + time_diff_start_to_this_packet;
-        }
-
-        if (tmp.uint == 0) {  // no valid laser beam return
-          // call to addPoint is still required since output could be organized
-          data.addPoint(
-            nanf(""), nanf(""), nanf(""), corrections.laser_ring,
-            nanf(""), nanf(""), time);
-          continue;
-        }
-
         float distance = tmp.uint * calibration_->distance_resolution_m;
         distance += corrections.dist_correction;
 
@@ -395,7 +272,7 @@ void RawData::unpack(
 
         data.addPoint(
           x_coord, y_coord, z_coord, corrections.laser_ring,
-          distance, intensity, time);
+          distance, intensity);
       }
     }
 
@@ -408,9 +285,7 @@ void RawData::unpack(
  *  @param pkt raw packet to unpack
  *  @param pc shared pointer to point cloud (points are appended)
  */
-void RawData::unpack_vlp16(
-  const velodyne_msgs::msg::VelodynePacket & pkt, DataContainerBase & data,
-  const rclcpp::Time & scan_start_time)
+void RawData::unpack_vlp16(const velodyne_msgs::msg::VelodynePacket & pkt, DataContainerBase & data)
 {
   float azimuth;
   float azimuth_diff;
@@ -420,9 +295,6 @@ void RawData::unpack_vlp16(
   int azimuth_corrected;
   float x, y, z;
   float intensity;
-
-  float time_diff_start_to_this_packet =
-    (rclcpp::Time(pkt.stamp) - scan_start_time).seconds();
 
   const raw_packet * raw = reinterpret_cast<const raw_packet *>(&pkt.data[0]);
 
@@ -585,14 +457,9 @@ void RawData::unpack_vlp16(
           intensity = (intensity < min_intensity) ? min_intensity : intensity;
           intensity = (intensity > max_intensity) ? max_intensity : intensity;
 
-          float time = 0;
-          if (timing_offsets_.size()) {
-            time = timing_offsets_[block][firing * 16 + dsr] + time_diff_start_to_this_packet;
-          }
-
           data.addPoint(
             x_coord, y_coord, z_coord, corrections.laser_ring,
-            distance, intensity, time);
+            distance, intensity);
         }
       }
 

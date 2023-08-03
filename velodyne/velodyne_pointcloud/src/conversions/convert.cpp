@@ -1,4 +1,4 @@
-// Copyright 2009, 2010, 2011, 2012, 2019 Austin Robot Technology, Jack O'Quin, Jesse Vera, Sebastian Pütz, Joshua Whitley  // NOLINT
+// Copyright 2009, 2010, 2011, 2012, 2019 Austin Robot Technology, Jack O'Quin, Jesse Vera, Joshua Whitley  // NOLINT
 // All rights reserved.
 //
 // Software License Agreement (BSD License 2.0)
@@ -30,14 +30,13 @@
 // ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
 
-#include "velodyne_pointcloud/transform.hpp"
+#include <velodyne_pointcloud/convert.hpp>
 
 #include <rcl_interfaces/msg/floating_point_range.hpp>
 #include <rcl_interfaces/msg/parameter_descriptor.hpp>
 #include <rclcpp/rclcpp.hpp>
 #include <rclcpp_components/register_node_macro.hpp>
-#include <tf2_ros/message_filter.h>
-#include <tf2_ros/transform_listener.h>
+#include <velodyne_msgs/msg/velodyne_scan.hpp>
 
 #include <cmath>
 #include <functional>
@@ -51,11 +50,13 @@
 namespace velodyne_pointcloud
 {
 
-Transform::Transform(const rclcpp::NodeOptions & options)
-: rclcpp::Node("velodyne_transform_node", options),
-  velodyne_scan_(this, "velodyne_packets"), tf_buffer_(this->get_clock()),
+/** @brief Constructor. */
+Convert::Convert(const rclcpp::NodeOptions & options)
+: rclcpp::Node("velodyne_convert_node", options),
+  tf_buffer_(this->get_clock()),
   diagnostics_(this)
 {
+  // get path to angles.config file for this device
   std::string calibration_file = this->declare_parameter("calibration", "");
 
   rcl_interfaces::msg::ParameterDescriptor min_range_desc;
@@ -98,9 +99,10 @@ Transform::Transform(const rclcpp::NodeOptions & options)
   view_width_desc.floating_point_range.push_back(view_width_range);
   double view_width = this->declare_parameter("view_width", 2.0 * M_PI, view_width_desc);
 
-  std::string target_frame = this->declare_parameter("frame_id", "map");
-  std::string fixed_frame = this->declare_parameter("fixed_frame", "odom");
   bool organize_cloud = this->declare_parameter("organize_cloud", true);
+
+  std::string target_frame = this->declare_parameter("target_frame", "");
+  std::string fixed_frame = this->declare_parameter("fixed_frame", "");
 
   RCLCPP_INFO(this->get_logger(), "correction angles: %s", calibration_file.c_str());
 
@@ -108,8 +110,8 @@ Transform::Transform(const rclcpp::NodeOptions & options)
 
   if (organize_cloud) {
     container_ptr_ = std::make_unique<OrganizedCloudXYZIR>(
-      min_range, max_range, target_frame, fixed_frame, data_->numLasers(),
-      data_->scansPerPacket(), tf_buffer_);
+      min_range, max_range, target_frame, fixed_frame,
+      data_->numLasers(), data_->scansPerPacket(), tf_buffer_);
   } else {
     container_ptr_ = std::make_unique<PointcloudXYZIR>(
       min_range, max_range, target_frame, fixed_frame,
@@ -117,24 +119,24 @@ Transform::Transform(const rclcpp::NodeOptions & options)
   }
 
   // advertise output point cloud (before subscribing to input data)
-  output_ = this->create_publisher<sensor_msgs::msg::PointCloud2>("velodyne_points", 10);
+  output_ =
+    this->create_publisher<sensor_msgs::msg::PointCloud2>("velodyne_points", 10);
 
-  // subscribe to VelodyneScan packets using transform filter
-  tf_filter_ =
-    std::make_unique<tf2_ros::MessageFilter<velodyne_msgs::msg::VelodyneScan>>(
-    velodyne_scan_, tf_buffer_, target_frame, 10,
-    this->get_node_logging_interface(), this->get_node_clock_interface());
-  tf_filter_->registerCallback(
-    std::bind(&Transform::processScan, this, std::placeholders::_1));
+  // subscribe to VelodyneScan packets
+  velodyne_scan_ =
+    this->create_subscription<velodyne_msgs::msg::VelodyneScan>(
+    "velodyne_packets", rclcpp::QoS(10),
+    std::bind(&Convert::processScan, this, std::placeholders::_1));
 
   // Diagnostics
-  diagnostics_.setHardwareID("Velodyne Transform");
+  diagnostics_.setHardwareID("Velodyne Convert");
   // Arbitrary frequencies since we don't know which RPM is used, and are only
   // concerned about monitoring the frequency.
   diag_min_freq_ = 2.0;
   diag_max_freq_ = 20.0;
   diag_topic_ = std::make_unique<diagnostic_updater::TopicDiagnostic>(
-    "velodyne_points", diagnostics_, diagnostic_updater::FrequencyStatusParam(
+    "velodyne_points", diagnostics_,
+    diagnostic_updater::FrequencyStatusParam(
       &diag_min_freq_, &diag_max_freq_, 0.1, 10),
     diagnostic_updater::TimeStampStatusParam());
 
@@ -142,23 +144,17 @@ Transform::Transform(const rclcpp::NodeOptions & options)
   container_ptr_->configure(min_range, max_range, target_frame, fixed_frame);
 }
 
-/** @brief Callback for raw scan messages.
- *
- *  @pre TF message filter has already waited until the transform to
- *       the configured @c frame_id can succeed.
- */
-void Transform::processScan(
-  const std::shared_ptr<const velodyne_msgs::msg::VelodyneScan> & scanMsg)
+/** @brief Callback for raw scan messages. */
+void Convert::processScan(const velodyne_msgs::msg::VelodyneScan::SharedPtr scanMsg)
 {
   if (output_->get_subscription_count() == 0 &&
-    output_->get_intra_process_subscription_count() == 0)    // no one listening?
+    output_->get_intra_process_subscription_count() == 0)   // no one listening?
   {
-    return;
+    return;                                     // avoid much work
   }
 
-  velodyne_msgs::msg::VelodyneScan * raw =
-    const_cast<velodyne_msgs::msg::VelodyneScan *>(scanMsg.get());
-  container_ptr_->setup(std::shared_ptr<velodyne_msgs::msg::VelodyneScan>(raw));
+  // allocate a point cloud with same time and frame ID as raw data
+  container_ptr_->setup(scanMsg);
 
   // process each packet provided by the driver
   for (size_t i = 0; i < scanMsg->packets.size(); ++i) {
@@ -166,10 +162,10 @@ void Transform::processScan(
   }
 
   // publish the accumulated cloud message
-  output_->publish(container_ptr_->finishCloud());
   diag_topic_->tick(scanMsg->header.stamp);
+  output_->publish(container_ptr_->finishCloud());
 }
 
 }  // namespace velodyne_pointcloud
 
-RCLCPP_COMPONENTS_REGISTER_NODE(velodyne_pointcloud::Transform)
+RCLCPP_COMPONENTS_REGISTER_NODE(velodyne_pointcloud::Convert)
