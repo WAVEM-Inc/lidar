@@ -37,29 +37,28 @@
 #include <memory>
 #include <string>
 
-#include "velodyne_pointcloud/pointcloudXYZIRT.hpp"
+#include "velodyne_pointcloud/pointcloudXYZIR.hpp"
 
 namespace velodyne_pointcloud
 {
 
-PointcloudXYZIRT::PointcloudXYZIRT(
+PointcloudXYZIR::PointcloudXYZIR(
   const double min_range, const double max_range,
   const std::string & target_frame, const std::string & fixed_frame,
-  const unsigned int scans_per_block, rclcpp::Clock::SharedPtr clock)
+  const unsigned int scans_per_block, tf2::BufferCore & tf_buffer)
 : DataContainerBase(
     min_range, max_range, target_frame, fixed_frame,
-    0, 1, true, scans_per_block, clock, 6,
+    0, 1, true, scans_per_block, tf_buffer, 5,
     "x", 1, sensor_msgs::msg::PointField::FLOAT32,
     "y", 1, sensor_msgs::msg::PointField::FLOAT32,
     "z", 1, sensor_msgs::msg::PointField::FLOAT32,
     "intensity", 1, sensor_msgs::msg::PointField::FLOAT32,
-    "ring", 1, sensor_msgs::msg::PointField::UINT16,
-    "time", 1, sensor_msgs::msg::PointField::FLOAT32),
+    "ring", 1, sensor_msgs::msg::PointField::UINT16),
   iter_x_(cloud, "x"), iter_y_(cloud, "y"), iter_z_(cloud, "z"),
-  iter_intensity_(cloud, "intensity"), iter_ring_(cloud, "ring"), iter_time_(cloud, "time")
+  iter_intensity_(cloud, "intensity"), iter_ring_(cloud, "ring")
 {}
 
-void PointcloudXYZIRT::setup(const velodyne_msgs::msg::VelodyneScan::ConstSharedPtr scan_msg)
+void PointcloudXYZIR::setup(const velodyne_msgs::msg::VelodyneScan::SharedPtr scan_msg)
 {
   DataContainerBase::setup(scan_msg);
   iter_x_ = sensor_msgs::PointCloud2Iterator<float>(cloud, "x");
@@ -67,16 +66,15 @@ void PointcloudXYZIRT::setup(const velodyne_msgs::msg::VelodyneScan::ConstShared
   iter_z_ = sensor_msgs::PointCloud2Iterator<float>(cloud, "z");
   iter_intensity_ = sensor_msgs::PointCloud2Iterator<float>(cloud, "intensity");
   iter_ring_ = sensor_msgs::PointCloud2Iterator<uint16_t>(cloud, "ring");
-  iter_time_ = sensor_msgs::PointCloud2Iterator<float>(cloud, "time");
 }
 
-void PointcloudXYZIRT::newLine()
+void PointcloudXYZIR::newLine()
 {
 }
 
-void PointcloudXYZIRT::addPoint(
+void PointcloudXYZIR::addPoint(
   float x, float y, float z, uint16_t ring,
-  float distance, float intensity, float time)
+  float distance, float intensity)
 {
   if (!pointInRange(distance)) {
     return;
@@ -84,14 +82,15 @@ void PointcloudXYZIRT::addPoint(
 
   // convert polar coordinates to Euclidean XYZ
 
-  transformPoint(x, y, z);
+  if (config_.transform) {
+    transformPoint(x, y, z);
+  }
 
   *iter_x_ = x;
   *iter_y_ = y;
   *iter_z_ = z;
   *iter_ring_ = ring;
   *iter_intensity_ = intensity;
-  *iter_time_ = time;
 
   ++cloud.width;
   ++iter_x_;
@@ -99,7 +98,6 @@ void PointcloudXYZIRT::addPoint(
   ++iter_z_;
   ++iter_ring_;
   ++iter_intensity_;
-  ++iter_time_;
 }
 
 }  // namespace velodyne_pointcloud

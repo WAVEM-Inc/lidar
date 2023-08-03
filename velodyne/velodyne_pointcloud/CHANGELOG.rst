@@ -1,37 +1,11 @@
 Change history
 ==============
 
-2.3.0 (2022-07-08)
+2.1.1 (2022-02-07)
 ------------------
-* Passing fixed_frame and target_frame to Convert object. (`#330 <https://github.com/ros-drivers/velodyne/issues/330>`_) (`#451 <https://github.com/ros-drivers/velodyne/issues/451>`_)
-  Co-authored-by: Joshua Whitley <jwhitley@autonomoustuff.com>
-* Updating maintainer email address. (`#450 <https://github.com/ros-drivers/velodyne/issues/450>`_)
-  * Updating maintainer email address.
-  * chore: update maintainer email address
-  Co-authored-by: Joshua Whitley <jwhitley@autonomoustuff.com>
-* Add per point time field (`#440 <https://github.com/ros-drivers/velodyne/issues/440>`_)
-  * Initial commit to timestamp each point using the timing spec in the manuals
-  * Added model param to each of the cloud nodelet starters
-  * Minor cleanup. added author tag to rawdata
-  * Move timing offsets functionality into class private. Also fix linter errors
-  * added #include <vector> for linter
-  * fix: suppress compiler warning
-  * feat: change XYZIR to XYZIRT
-  Co-authored-by: Shawn Hanna <shawn@kaarta.com>
-* Link against yaml-cpp (`#443 <https://github.com/ros-drivers/velodyne/issues/443>`_)
-* Increase the max_range of the 32C launch file (`#323 <https://github.com/ros-drivers/velodyne/issues/323>`_) (`#441 <https://github.com/ros-drivers/velodyne/issues/441>`_)
-  Co-authored-by: Shawn Hanna <50845122+kaarta-SHanna@users.noreply.github.com>
-* fix for `#267 <https://github.com/ros-drivers/velodyne/issues/267>`_, transform each packet (`#438 <https://github.com/ros-drivers/velodyne/issues/438>`_)
-  * fix for `#267 <https://github.com/ros-drivers/velodyne/issues/267>`_, transform each packet
-  * fix: fix scope of access modifiers
-  Co-authored-by: Sebastian <spuetz@uos.de>
-* Replace deprecated argument names in launch (`#430 <https://github.com/ros-drivers/velodyne/issues/430>`_)
-* 2.1.1
-* Updating for first Galactic release
-* Contributors: Daisuke Nishimatsu, Joshua Whitley, Keane Quigley, Stephan Sundermann
-
-2.1.1 (2021-08-23)
-------------------
+* Replace deprecated argument names in launch (`#435 <https://github.com/ros-drivers/velodyne/issues/435>`_)
+  Co-authored-by: Keane Quigley <keaneq@protonmail.com>
+* Contributors: Chris Lalancette
 
 2.1.0 (2020-07-10)
 ------------------
