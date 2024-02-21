@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.wavem.persistence.DistanceDataMapper">
+	
+<!--    <resultMap id="DistanceDataMap" type="com.wavem.vo.DistanceDataVO">
+         <result property="detectionTime" column="detectionTime" />
+         <result property="rangeIndex" column="rangeIndex" />  
+         <result property="rangeData" column="rangeData" />
+         <result property="channel" column="channel" />
+         <result property="detectionValue" column="detectionValue" />  
+    </resultMap>  -->
+    
+	<select id="getDistanceData" parameterType="hashmap" resultType="com.wavem.vo.DistanceDataVO">
+		SELECT detectionTime
+		, rangeIndex
+		, rangeData
+		, channel
+		, detectionValue
+         FROM wdbs.distance_data
+		WHERE detectionTime like CONCAT('%',#{detectionTime},'%')
+		ORDER BY rangeIndex DESC LIMIT 480
+	</select>
+	
+	<insert id="insertDistanceData" parameterType="hashmap">
+		INSERT INTO wdbs.distance_data
+				(detectionTime
+				, rangeIndex
+				, rangeData
+				, channel
+				, detectionValue
+				, updatedatetime)
+			VALUES
+			<foreach collection="distanceData" item="item" separator=",">    
+			(#{item.detectionTime}
+				, #{item.rangeIndex}
+				, #{item.rangeData}
+				, #{item.channel}
+				, #{item.detectionValue}				
+				, current_timestamp())
+		    </foreach>
+	</insert>
+	
+	
+</mapper>
+
