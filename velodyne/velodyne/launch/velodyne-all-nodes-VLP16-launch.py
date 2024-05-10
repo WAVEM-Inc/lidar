@@ -44,8 +44,22 @@ def generate_launch_description():
     driver_params_file = os.path.join(driver_share_dir, 'config', 'VLP16-velodyne_driver_node-params.yaml')
     velodyne_driver_node = launch_ros.actions.Node(package='velodyne_driver',
                                                    executable='velodyne_driver_node',
+                                                   remappings=[
+                                                   ('velodyne_packets', 'front_velodyne_packets')
+                                                   ],
                                                    output='both',
                                                    parameters=[driver_params_file])
+
+    rear_driver_share_dir = ament_index_python.packages.get_package_share_directory('velodyne_driver')
+    rear_driver_params_file = os.path.join(rear_driver_share_dir, 'config', 'rear_VLP16-velodyne_driver_node-params.yaml')
+    rear_velodyne_driver_node = launch_ros.actions.Node(package='velodyne_driver',
+                                                   executable='velodyne_driver_node',
+                                                   name='rear_velodyne_driver_node',
+                                                   remappings=[
+                                                   ('velodyne_packets', 'rear_velodyne_packets')
+                                                   ],
+                                                   output='both',
+                                                   parameters=[rear_driver_params_file])
 
     convert_share_dir = ament_index_python.packages.get_package_share_directory('velodyne_pointcloud')
     convert_params_file = os.path.join(convert_share_dir, 'config', 'VLP16-velodyne_transform_node-params.yaml')
@@ -54,20 +68,58 @@ def generate_launch_description():
     convert_params['calibration'] = os.path.join(convert_share_dir, 'params', 'VLP16db.yaml')
     velodyne_transform_node = launch_ros.actions.Node(package='velodyne_pointcloud',
                                                       executable='velodyne_transform_node',
+                                                      remappings=[
+                                                      ('velodyne_packets', 'front_velodyne_packets'),
+                                                      ('velodyne_points', 'front_velodyne_points')
+                                                      ],
                                                       output='both',
                                                       parameters=[convert_params])
+
+    rear_convert_share_dir = ament_index_python.packages.get_package_share_directory('velodyne_pointcloud')
+    rear_convert_params_file = os.path.join(convert_share_dir, 'config', 'rear_VLP16-velodyne_transform_node-params.yaml')
+    with open(rear_convert_params_file, 'r') as f:
+        rear_convert_params = yaml.safe_load(f)['rear_velodyne_transform_node']['ros__parameters']
+    rear_convert_params['calibration'] = os.path.join(rear_convert_share_dir, 'params', 'VLP16db.yaml')
+    rear_velodyne_transform_node = launch_ros.actions.Node(package='velodyne_pointcloud',
+                                                      executable='velodyne_transform_node',
+                                                      name='rear_velodyne_transform_node',
+                                                      remappings=[
+                                                      ('velodyne_packets', 'rear_velodyne_packets'),
+                                                      ('velodyne_points', 'rear_velodyne_points')
+                                                      ],
+                                                      output='both',
+                                                      parameters=[rear_convert_params])
 
     laserscan_share_dir = ament_index_python.packages.get_package_share_directory('velodyne_laserscan')
     laserscan_params_file = os.path.join(laserscan_share_dir, 'config', 'default-velodyne_laserscan_node-params.yaml')
     velodyne_laserscan_node = launch_ros.actions.Node(package='velodyne_laserscan',
                                                       executable='velodyne_laserscan_node',
+                                                      name='front_velodyne_laserscan_node',
+                                                      remappings=[
+                                                      ('scan', 'front_scan'),
+                                                      ('velodyne_points', 'front_velodyne_points')
+                                                      ],
                                                       output='both',
                                                       parameters=[laserscan_params_file])
 
+    rear_laserscan_share_dir = ament_index_python.packages.get_package_share_directory('velodyne_laserscan')
+    rear_laserscan_params_file = os.path.join(rear_laserscan_share_dir, 'config', 'rear_default-velodyne_laserscan_node-params.yaml')
+    rear_velodyne_laserscan_node = launch_ros.actions.Node(package='velodyne_laserscan',
+                                                      executable='velodyne_laserscan_node',
+                                                      name='rear_velodyne_laserscan_node',
+                                                      remappings=[
+                                                      ('scan', 'rear_scan'),
+                                                      ('velodyne_points', 'rear_velodyne_points')
+                                                      ],
+                                                      output='both',
+                                                      parameters=[rear_laserscan_params_file])
 
     return launch.LaunchDescription([velodyne_driver_node,
+                                     rear_velodyne_driver_node,
                                      velodyne_transform_node,
+                                     rear_velodyne_transform_node,
                                      velodyne_laserscan_node,
+                                     rear_velodyne_laserscan_node,
 
                                      launch.actions.RegisterEventHandler(
                                          event_handler=launch.event_handlers.OnProcessExit(
