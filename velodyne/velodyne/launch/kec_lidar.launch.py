@@ -7,14 +7,14 @@ from launch.launch_description_sources import PythonLaunchDescriptionSource
 
 def generate_launch_description():
     velodyne_dir = get_package_share_directory('velodyne')
-    velodyne_launch_file = os.path.join(velodyne_dir, 'launch', 'velodyne-all-nodes-VLP16-launch.pyvelodyne-all-nodes-VLP16-launch.py')
+    velodyne_launch_file = os.path.join(velodyne_dir, 'launch', 'velodyne-all-nodes-VLP16-launch.py')
     velodyne_launch = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(
             velodyne_launch_file
         )
     )
     scan_merger_dir = get_package_share_directory('laserscan_multi_merger')
-    scan_merer_launch_file = os.path.join(imu_dir, 'launch','merge_multi_launch.py')
+    scan_merger_launch_file = os.path.join(scan_merger_dir, 'launch','merge_multi_launch.py')
     scan_merger_launch = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(
             scan_merger_launch_file
